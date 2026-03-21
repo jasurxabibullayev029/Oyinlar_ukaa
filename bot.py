@@ -10,7 +10,7 @@ import json
 from datetime import datetime
 
 # Bot tokeningizni shu yerga kiriting
-BOT_TOKEN = "8418909085:AAGN14yabwNy2zSVuTH28V43trbJikpaBXA"  # @BotFather dan olingan to'g'ri tokenni kiriting
+BOT_TOKEN = "8418909085:AAEw1wuuPG3zvziTD5PtsYwbnzQBRHKCfgA"  # @BotFather dan olingan to'g'ri tokenni kiriting
 
 # Kanal username ( @ belgisiz )
 CHANNEL_USERNAME = "jasurdvv"
@@ -99,25 +99,108 @@ async def handle_document(message: Message):
 # Admin paneli
 @dp.message(F.text == "/admin")
 async def admin_panel(message: Message):
-    if message.from_user.id == 1209491758:  # Bot egasi ID
-        keyboard = InlineKeyboardMarkup(inline_keyboard=[
-            [InlineKeyboardButton(text="📊 Statistika", callback_data="stats")],
-            [InlineKeyboardButton(text="📄 Fayllar", callback_data="files")],
-            [InlineKeyboardButton(text="📢 Xabar yuborish", callback_data="broadcast")],
-            [InlineKeyboardButton(text="⚙️ Sozlamalar", callback_data="settings")]
-        ])
+    # Parolni so'rash
+    await message.answer(
+        "🔐 **Admin panelga kirish**\n\n"
+        "🔑 Parolni kiriting:",
+        reply_markup=types.ForceReply()
+    )
+
+# Admin state lari uchun dictionary
+admin_states = {}
+
+# Admin session lari uchun dictionary
+admin_sessions = {}
+
+# Admin parolini tekshirish
+@dp.message(F.text)
+async def check_admin_password(message: Message):
+    # Agar bu parol tekshiruvi bo'lsa
+    if message.reply_to_message and "Parolni kiriting:" in message.reply_to_message.text:
+        password = message.text.strip()
+        
+        if password == "vfx.jasur2010":
+            # Parol to'g'ri - admin session yaratish
+            admin_sessions[message.from_user.id] = True
+            
+            # Admin panelni ko'rsatish
+            keyboard = InlineKeyboardMarkup(inline_keyboard=[
+                [InlineKeyboardButton(text="📊 Statistika", callback_data="stats")],
+                [InlineKeyboardButton(text="📄 Fayllar", callback_data="files")],
+                [InlineKeyboardButton(text="📢 Xabar yuborish", callback_data="broadcast")],
+                [InlineKeyboardButton(text="⚙️ Sozlamalar", callback_data="settings")],
+                [InlineKeyboardButton(text="➕ O'yin qo'shish", callback_data="add_game")]
+            ])
+            await message.answer(
+                "👑 **Admin Panel**\n\n"
+                "Kerakli bo'limni tanlang:",
+                reply_markup=keyboard
+            )
+        else:
+            # Parol noto'g'ri
+            await message.answer(
+                "❌ **Parol noto'g'ri!**\n\n"
+                "🔑 Qayta urinib ko'ring:",
+                reply_markup=types.ForceReply()
+            )
+        return
+    
+    # Agar bu admin state bo'lsa (o'yin qo'shish jarayoni)
+    if message.from_user.id in admin_states and admin_states[message.from_user.id]["step"] == "waiting_game_name":
+        game_name = message.text
+        admin_states[message.from_user.id] = {
+            "step": "waiting_video_link",
+            "game_name": game_name
+        }
+        
         await message.answer(
-            "👑 **Admin Panel**\n\n"
-            "Kerakli bo'limni tanlang:",
-            reply_markup=keyboard
+            f"🎮 **O'yin nomi qabul qilindi:** {game_name}\n\n"
+            "2️⃣ **Video linkini kiriting:**\n"
+            "Masalan: https://youtu.be/example\n\n"
+            "⏳ Video linkini kutayman..."
         )
-    else:
-        await message.answer("❌ Siz admin emassiz!")
+        return  # Bu muhim - shu handlerni to'xtatish
+    
+    # Video linkini qabul qilish
+    if message.from_user.id in admin_states and admin_states[message.from_user.id]["step"] == "waiting_video_link":
+        video_link = message.text
+        game_name = admin_states[message.from_user.id]["game_name"]
+        
+        # O'yinni database ga saqlash
+        conn = sqlite3.connect('bot.db')
+        cursor = conn.cursor()
+        
+        try:
+            cursor.execute(
+                "INSERT INTO games (name, video, file_id) VALUES (?, ?, ?)",
+                (game_name, video_link, None)
+            )
+            conn.commit()
+            
+            # Admin state ni tozalash
+            del admin_states[message.from_user.id]
+            
+            await message.answer(
+                f"✅ **O'yin muvaffaqiyat qo'shildi!**\n\n"
+                f"🎮 O'yin nomi: {game_name}\n"
+                f"🎬 Video linki: {video_link}\n\n"
+                f"📝 Endi o'yin uchun fayl yuboring.\n"
+                f"Faylni shu o'yinga tegishli yuboring, bot uni avtomatik bog'laydi."
+            )
+        except sqlite3.IntegrityError:
+            await message.answer("❌ Bu o'yin allaqachon mavjud!")
+        finally:
+            conn.close()
+        return  # Bu muhim - shu handlerni to'xtatish
+    
+    # Boshqa xabarlar uchun odatiy ishlov
+    pass
 
 # Statistika
 @dp.callback_query(F.data == "stats")
 async def stats_callback(callback: types.CallbackQuery):
-    if callback.from_user.id == 1209491758:
+    # Parol tekshiruvi o'rniga session yaratamiz
+    if callback.from_user.id in admin_sessions:
         try:
             with open("users.json", "r") as f:
                 users = json.load(f)
@@ -139,33 +222,37 @@ async def stats_callback(callback: types.CallbackQuery):
         except Exception as e:
             await callback.message.edit_text(f"❌ Xatolik: {e}")
     else:
-        await callback.answer("❌ Siz admin emassiz!", show_alert=True)
+        await callback.answer("❌ Avval admin panelga kirishingiz kerak!", show_alert=True)
 
 # Fayllarni ko'rish
 @dp.callback_query(F.data == "files")
 async def files_callback(callback: types.CallbackQuery):
-    if callback.from_user.id == 1209491758:
+    if callback.from_user.id in admin_sessions:
+        conn = sqlite3.connect('bot.db')
+        cursor = conn.cursor()
+        
         try:
-            with open("files.json", "r") as f:
-                files = json.load(f)
+            cursor.execute("SELECT * FROM games ORDER BY created_at DESC")
+            games = cursor.fetchall()
             
-            if not files:
-                await callback.message.edit_text("📄 Fayllar topilmadi")
+            if not games:
+                await callback.message.edit_text("🎮 O'yinlar topilmadi")
                 return
             
-            files_text = "📄 **Fayllar ro'yxati**\n\n"
-            for i, file in enumerate(files, 1):
-                files_text += f"{i}. {file['name']}\n"
-                files_text += f"   🆔 ID: `{file['id']}`\n"
-                files_text += f"   📅 {file['date']}\n\n"
+            games_text = "🎮 **O'yinlar ro'yxati**\n\n"
+            for i, game in enumerate(games, 1):
+                games_text += f"{i}. {game[1]}\n"
+                games_text += f"   � Video: {game[2]}\n"
+                games_text += f"   � Fayl: {'✅ Bor' if game[3] else '❌ Yo\'q'}\n"
+                games_text += f"   📅 {game[4]}\n\n"
             
-            await callback.message.edit_text(files_text)
-        except FileNotFoundError:
-            await callback.message.edit_text("📄 Fayllar topilmadi")
+            await callback.message.edit_text(games_text)
         except Exception as e:
             await callback.message.edit_text(f"❌ Xatolik: {e}")
+        finally:
+            conn.close()
     else:
-        await callback.answer("❌ Siz admin emassiz!", show_alert=True)
+        await callback.answer("❌ Avval admin panelga kirishingiz kerak!", show_alert=True)
 
 # Xabar yuborish
 @dp.callback_query(F.data == "broadcast")
