@@ -370,12 +370,12 @@ async def download_mortal_kombat_callback(callback: types.CallbackQuery):
                 # Mortal Kombat faylini yuborish
                 await bot.send_document(
                     chat_id=callback.from_user.id,
-                    document="BQACAgIAAxkBAAMUab5tjfBC3cpZk6bJBbjZTFEBWC8AAmWXAAIOlPFJLJaivlBhAAEqOgQ",  # Mortal Kombat X file_id11111111111111111111111111111111111111111111111111111111111111111111111111
-                    caption="🥊 **Mortal Kombat X**\n\n"
+                    document="BQACAgIAAxkBAAODab54IxCTwzfRbrcvjyelxRkCne8AArWXAAIOlPFJVzr82p9XM486BA",  # Mortal Kombat X file_id11111111111111111111111111111111111111111111111111111111111111111111111111
+                    caption="🥊 **Mortal Kombat 1**\n\n"
                            "📥 Fayl muvaffaqiyatli yuklandi!\n"
                            "🔧 O'yinni o'rnatish uchun arxivni oching.\n\n"
                            "🎬 O'yinni o'rnatish bo'yicha video:\n"
-                           "https://youtu.be/mortal_kombat_video"
+                           "https://youtu.be/woNuI0VWcpg"
                 )
                 print(f"Mortal Kombat fayli muvaffaqiyatli yuborildi: {callback.from_user.id}")
             except Exception as file_error:
